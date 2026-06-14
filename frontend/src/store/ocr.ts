@@ -78,6 +78,15 @@ export const useOcrStore = defineStore('ocr', () => {
     currentDoc.value.annotations = currentDoc.value.annotations.filter(a => a.id !== id)
   }
 
+  function updateAnnotation(id: string, updates: Partial<Pick<Annotation, 'label' | 'content'>>) {
+    if (!currentDoc.value) return
+    const ann = currentDoc.value.annotations.find(a => a.id === id)
+    if (ann) {
+      if (updates.label !== undefined) ann.label = updates.label
+      if (updates.content !== undefined) ann.content = updates.content
+    }
+  }
+
   function convertVariant(text: string): string {
     return text.split('').map(c => VARIANT_DICT[c] || c).join('')
   }
@@ -104,7 +113,7 @@ export const useOcrStore = defineStore('ocr', () => {
 
   return {
     documents, currentDoc, isLoading, searchQuery, searchResults,
-    loadMockDocument, uploadAndOCR, addAnnotation, removeAnnotation,
+    loadMockDocument, uploadAndOCR, addAnnotation, removeAnnotation, updateAnnotation,
     convertVariant, searchInDocuments, exportTEI
   }
 })

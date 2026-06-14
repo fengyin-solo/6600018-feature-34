@@ -74,12 +74,45 @@
       <h3 class="text-amber-300 font-bold text-sm mt-4">标注列表</h3>
       <div v-if="store.currentDoc" class="space-y-1">
         <div v-for="a in store.currentDoc.annotations" :key="a.id"
-          class="bg-gray-800 rounded p-2 text-xs flex justify-between">
-          <span>[{{ a.type }}] {{ a.label }}: {{ a.content }}</span>
-          <button @click="store.removeAnnotation(a.id)" class="text-red-400 hover:underline">删除</button>
+          class="bg-gray-800 rounded p-2 text-xs">
+          <div class="flex justify-between items-start">
+            <span>[{{ a.type }}] {{ a.label }}: {{ a.content }}</span>
+            <div class="flex gap-1 ml-2 shrink-0">
+              <button @click="openEditModal(a)" class="text-blue-400 hover:underline">编辑</button>
+              <button @click="store.removeAnnotation(a.id)" class="text-red-400 hover:underline">删除</button>
+            </div>
+          </div>
         </div>
         <div v-if="!store.currentDoc.annotations.length" class="text-gray-600 text-xs">
           在图片上拖拽框选区域添加标注
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Annotation Modal -->
+    <div v-if="editingAnnotation" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      @click.self="closeEditModal">
+      <div class="bg-gray-800 rounded-lg p-5 w-96 shadow-xl">
+        <h3 class="text-amber-300 font-bold mb-4">编辑标注</h3>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">标签</label>
+            <input v-model="editForm.label"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm text-white"
+              placeholder="如：章节/段落/异体字" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">说明内容</label>
+            <textarea v-model="editForm.content" rows="4"
+              class="w-full bg-gray-700 rounded px-3 py-2 text-sm text-white resize-none"
+              placeholder="标注说明..."></textarea>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-5">
+          <button @click="closeEditModal"
+            class="px-4 py-2 rounded bg-gray-700 text-sm hover:bg-gray-600">取消</button>
+          <button @click="saveEdit"
+            class="px-4 py-2 rounded bg-amber-500 text-black text-sm font-medium hover:bg-amber-400">保存</button>
         </div>
       </div>
     </div>
@@ -87,10 +120,42 @@
 </template>
 
 <script setup lang="ts">
+import { ref, reactive, onMounted } from 'vue'
 import { useOcrStore } from './store/ocr'
 import ImageCanvas from './components/ImageCanvas.vue'
+import type { Annotation } from './types'
 
 const store = useOcrStore()
+
+const editingAnnotation = ref<Annotation | null>(null)
+const editForm = reactive({ label: '', content: '' })
+
+function openEditModal(a: Annotation) {
+  editingAnnotation.value = a
+  editForm.label = a.label
+  editForm.content = a.content
+}
+
+function closeEditModal() {
+  editingAnnotation.value = null
+}
+
+function saveEdit() {
+  if (!editingAnnotation.value) return
+  store.updateAnnotation(editingAnnotation.value.id, {
+    label: editForm.label,
+    content: editForm.content
+  })
+  closeEditModal()
+}
+
+onMounted(() => {
+  const handleOpenEdit = (e: Event) => {
+    const ann = (e as CustomEvent<Annotation>).detail
+    openEditModal(ann)
+  }
+  window.addEventListener('open-edit-annotation', handleOpenEdit)
+})
 
 function onUpload(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]

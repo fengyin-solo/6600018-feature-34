@@ -14,7 +14,9 @@
         <text :x="r.bbox[0]" :y="r.bbox[1] - 5" fill="#fbbf24" font-size="12">{{ r.text }}</text>
       </g>
       <!-- Annotations -->
-      <g v-for="a in store.currentDoc?.annotations || []" :key="a.id">
+      <g v-for="a in store.currentDoc?.annotations || []" :key="a.id"
+        class="cursor-pointer" style="pointer-events: auto"
+        @mousedown.stop="onAnnotationMouseDown(a, $event)">
         <rect :x="a.bbox[0]" :y="a.bbox[1]" :width="a.bbox[2]" :height="a.bbox[3]"
           fill="rgba(59,130,246,0.15)" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,5" />
         <text :x="a.bbox[0]" :y="a.bbox[1] - 5" fill="#3b82f6" font-size="11">{{ a.label }}</text>
@@ -29,6 +31,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
 import { useOcrStore } from '../store/ocr'
+import type { Annotation } from '../types'
 
 const store = useOcrStore()
 const mockCanvas = ref<HTMLCanvasElement | null>(null)
@@ -36,6 +39,8 @@ const imgRef = ref<HTMLImageElement | null>(null)
 const dragging = ref(false)
 const dragStart = reactive({ x: 0, y: 0 })
 const dragRect = reactive({ x: 0, y: 0, w: 0, h: 0 })
+const clickedAnnotation = ref<Annotation | null>(null)
+const clickStart = reactive({ x: 0, y: 0 })
 
 onMounted(() => {
   if (mockCanvas.value) {
@@ -75,6 +80,14 @@ function startDrag(e: MouseEvent) {
   dragStart.x = e.clientX - rect.left
   dragStart.y = e.clientY - rect.top
   dragging.value = true
+  clickedAnnotation.value = null
+}
+
+function onAnnotationMouseDown(a: Annotation, e: MouseEvent) {
+  clickedAnnotation.value = a
+  clickStart.x = e.clientX
+  clickStart.y = e.clientY
+  dragging.value = false
 }
 
 function onDrag(e: MouseEvent) {
@@ -88,6 +101,15 @@ function onDrag(e: MouseEvent) {
 }
 
 function endDrag(e: MouseEvent) {
+  if (clickedAnnotation.value) {
+    const dx = Math.abs(e.clientX - clickStart.x)
+    const dy = Math.abs(e.clientY - clickStart.y)
+    if (dx < 5 && dy < 5) {
+      window.dispatchEvent(new CustomEvent('open-edit-annotation', { detail: clickedAnnotation.value }))
+    }
+    clickedAnnotation.value = null
+    return
+  }
   if (!dragging.value || dragRect.w < 10 || dragRect.h < 10) { dragging.value = false; return }
   dragging.value = false
   const label = prompt('标注标签（如：章节/段落/异体字）') || 'region'
